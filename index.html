@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terminal Matrix Pro</title>
+  
+  <!-- Importación de fuente estilo Minecraft -->
+  <link href="https://fonts.cdnfonts.com/css/minecraftia" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #000;
+      color: #00ff66;
+      font-family: 'Courier New', Courier, monospace;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    #matrixCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Overlay para mensajes flotantes de Say con fuente estilo Minecraft */
+    #sayOverlay {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 20;
+      color: #ffffff;
+      font-family: 'Minecraftia', 'Courier New', monospace;
+      font-size: 20px;
+      text-align: center;
+      text-shadow: 2px 2px 0px #000000, 0 0 10px #00ff66;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      white-space: nowrap;
+      image-rendering: pixelated;
+    }
+
+    #sayOverlay.show {
+      opacity: 1;
+    }
+
+    /* Modal de Bienvenida */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.85);
+      z-index: 10;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(5px);
+    }
+
+    .modal-box {
+      background-color: rgba(10, 10, 10, 0.95);
+      border: 2px solid #00ff66;
+      border-radius: 8px;
+      padding: 25px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 0 30px rgba(0, 255, 102, 0.5);
+      text-align: center;
+    }
+
+    .modal-box h2 {
+      margin-bottom: 15px;
+      font-size: 18px;
+      color: #00ff66;
+    }
+
+    .modal-box input {
+      width: 100%;
+      padding: 10px;
+      background: #000;
+      border: 1px solid #00ff66;
+      color: #00ff66;
+      font-family: inherit;
+      font-size: 16px;
+      border-radius: 4px;
+      outline: none;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .modal-box button {
+      background-color: #00ff66;
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      font-family: inherit;
+      font-weight: bold;
+      font-size: 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .modal-box button:hover {
+      background-color: #ffffff;
+      box-shadow: 0 0 10px #ffffff;
+    }
+
+    /* Terminal Container */
+    .terminal-container {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 700px;
+      background-color: rgba(0, 0, 0, 0.85);
+      border: 2px solid #00ff66;
+      border-radius: 8px;
+      box-shadow: 0 0 25px rgba(0, 255, 102, 0.4);
+      overflow: hidden;
+      backdrop-filter: blur(4px);
+    }
+
+    .terminal-container::before {
+      content: " ";
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .terminal-header {
+      background-color: rgba(26, 26, 26, 0.9);
+      padding: 8px 15px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #333;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .red { background-color: #ff5f56; }
+    .yellow { background-color: #ffbd2e; }
+    .green { background-color: #27c93f; }
+
+    .title {
+      color: #888;
+      font-size: 13px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .terminal-body {
+      padding: 20px;
+      height: 400px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .line {
+      margin-bottom: 10px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .prompt-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .prompt-label {
+      color: #00ff66;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    input[type="text"] {
+      background: transparent;
+      border: none;
+      color: #00ff66;
+      font-family: inherit;
+      font-size: 16px;
+      outline: none;
+      width: 100%;
+    }
+
+    .system-msg {
+      color: #888888;
+    }
+
+    .highlight {
+      color: #ffffff;
+      font-weight: bold;
+    }
+
+    @keyframes alertFlash {
+      0% { background-color: rgba(255, 0, 0, 0.8); }
+      50% { background-color: rgba(0, 0, 0, 0.9); }
+      100% { background-color: rgba(255, 0, 0, 0.8); }
+    }
+
+    .glitch-mode {
+      animation: alertFlash 0.2s infinite;
+      border-color: #ff0000;
+      box-shadow: 0 0 30px rgba(255, 0, 0, 0.8);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Texto flotante en pantalla -->
+  <div id="sayOverlay"></div>
+
+  <!-- Modal para pedir el nombre -->
+  <div class="modal-overlay" id="modalName">
+    <div class="modal-box">
+      <h2>IDENTIFICACIÓN REQUERIDA</h2>
+      <p style="margin-bottom: 15px; font-size: 14px; color: #888;">Ingresa tu alias para ingresar a la Matrix:</p>
+      <input type="text" id="inputNombreModal" placeholder="Tu alias aquí..." autofocus autocomplete="off">
+      <button id="btnEntrar">INGRESAR</button>
+    </div>
+  </div>
+
+  <canvas id="matrixCanvas"></canvas>
+
+  <div class="terminal-container" id="terminalContainer">
+    <div class="terminal-header">
+      <div class="buttons">
+        <div class="dot red"></div>
+        <div class="dot yellow"></div>
+        <div class="dot green"></div>
+      </div>
+      <div class="title">matrix_terminal.sh</div>
+    </div>
+
+    <div class="terminal-body" id="terminalBody">
+      <div class="line system-msg">Conexión establecida con la Matrix... [OK]</div>
+      <div class="line">Bienvenido. Escribe <span class="highlight">help</span> para ver los comandos. Usa <span class="highlight">Tab</span> para autocompletar.</div>
+      
+      <div id="historial"></div>
+
+      <div class="prompt-line">
+        <span class="prompt-label" id="promptLabel">usuario&gt;</span>
+        <input type="text" id="inputComando" autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- MANEJO DEL NOMBRE DE USUARIO ---
+    let nombreUsuario = 'usuario';
+    const modalName = document.getElementById('modalName');
+    const inputNombreModal = document.getElementById('inputNombreModal');
+    const btnEntrar = document.getElementById('btnEntrar');
+    const promptLabel = document.getElementById('promptLabel');
+    const input = document.getElementById('inputComando');
+
+    function fijarNombre() {
+      const nombreIngresado = inputNombreModal.value.trim();
+      if (nombreIngresado !== '') {
+        nombreUsuario = nombreIngresado;
+      }
+      promptLabel.textContent = `${nombreUsuario}>`;
+      modalName.style.display = 'none';
+      input.focus();
+    }
+
+    btnEntrar.addEventListener('click', fijarNombre);
+    inputNombreModal.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') fijarNombre();
+    });
+
+    // --- ANIMACIÓN MATRIX ---
+    const canvas = document.getElementById('matrixCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()*&^%';
+    const fontSize = 16;
+    let columns = Math.floor(canvas.width / fontSize);
+    let drops = Array(columns).fill(1);
+    let matrixColor = '#00ff66';
+
+    function drawMatrix() {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = matrixColor;
+      ctx.font = `${fontSize}px monospace`;
+
+      const currentColumns = Math.floor(canvas.width / fontSize);
+      if (currentColumns !== columns) {
+        columns = currentColumns;
+        drops = Array(columns).fill(1);
+      }
+
+      for (let i = 0; i < drops.length; i++) {
+        const text = characters.charAt(Math.floor(Math.random() * characters.length));
+        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i]++;
+      }
+    }
+
+    setInterval(drawMatrix, 33);
+
+    // --- LÓGICA DE LA TERMINAL ---
+    const historial = document.getElementById('historial');
+    const terminalBody = document.getElementById('terminalBody');
+    const terminalContainer = document.getElementById('terminalContainer');
+    const sayOverlay = document.getElementById('sayOverlay');
+    let sayTimeout;
+
+    const listaComandos = ['help', 'perfil', 'recuerdos', 'secreto', 'date', 'matrix', 'sudo', 'say', 'destroy', 'clear'];
+    let historialComandos = [];
+    let indiceHistorial = -1;
+
+    document.querySelector('.terminal-container').addEventListener('click', () => {
+      input.focus();
+    });
+
+    input.addEventListener('keydown', function(event) {
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        const textoActual = input.value.trim().toLowerCase();
+        if (!textoActual) return;
+        const coincidencia = listaComandos.find(c => c.startsWith(textoActual));
+        if (coincidencia) {
+          input.value = coincidencia;
+        }
+      }
+
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (historialComandos.length > 0 && indiceHistorial < historialComandos.length - 1) {
+          indiceHistorial++;
+          input.value = historialComandos[historialComandos.length - 1 - indiceHistorial];
+        }
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (indiceHistorial > 0) {
+          indiceHistorial--;
+          input.value = historialComandos[historialComandos.length - 1 - indiceHistorial];
+        } else if (indiceHistorial === 0) {
+          indiceHistorial = -1;
+          input.value = '';
+        }
+      }
+
+      if (event.key === 'Enter') {
+        const valorOriginal = input.value;
+        const inputTrimmed = valorOriginal.trim();
+        if (inputTrimmed === '') return;
+
+        historialComandos.push(valorOriginal);
+        indiceHistorial = -1;
+
+        const partes = inputTrimmed.split(' ');
+        const comando = partes[0].toLowerCase();
+        const argumento = partes.slice(1).join(' ');
+
+        const lineaComando = document.createElement('div');
+        lineaComando.className = 'line';
+        lineaComando.innerHTML = `<span class="prompt-label">${escapeHTML(nombreUsuario)}&gt;</span> ${escapeHTML(valorOriginal)}`;
+        historial.appendChild(lineaComando);
+
+        const lineaRespuesta = document.createElement('div');
+        lineaRespuesta.className = 'line';
+
+        switch (comando) {
+          case 'help':
+            lineaRespuesta.innerHTML = `
+              Comandos disponibles:<br>
+              - <span class="highlight">perfil</span>: Estadísticas del usuario.<br>
+              - <span class="highlight">recuerdos</span>: Registro de momentos clave.<br>
+              - <span class="highlight">secreto</span>: Revela el mensaje oculto.<br>
+              - <span class="highlight">date</span>: Muestra la fecha y hora del sistema.<br>
+              - <span class="highlight">matrix [rojo|azul|verde]</span>: Cambia el color de la Matrix.<br>
+              - <span class="highlight">say [texto]</span>: Muestra un mensaje flotante en pantalla.<br>
+              - <span class="highlight">sudo</span>: Solicita acceso de administrador.<br>
+              - <span class="highlight">destroy</span>: Simula un colapso del sistema.<br>
+              - <span class="highlight">clear</span>: Limpia la pantalla.
+            `;
+            historial.appendChild(lineaRespuesta);
+            break;
+
+          case 'perfil':
+            lineaRespuesta.innerHTML = `
+              [ESTADO DENTRO DE LA MATRIX]<br>
+              Alias: <span class="highlight">${escapeHTML(nombreUsuario)}</span><br>
+              Nivel: 67<br>
+              Habilidad: No descubierta
+            `;
+            historial.appendChild(lineaRespuesta);
+            break;
+
+          case 'recuerdos':
+            lineaRespuesta.innerHTML = `no recuerdo nada XD`;
+            historial.appendChild(lineaRespuesta);
+            break;
+
+          case 'secreto':
+            lineaRespuesta.innerHTML = `
+              <span style="color: #ffbd2e;">[PAQUETE DESENCRIPTADO]</span><br>
+              solo quería decirte que gracias por ser mi amigo :3
+            `;
+            historial.appendChild(lineaRespuesta);
+            break;
+
+          case 'date':
+            lineaRespuesta.innerHTML = `Fecha y hora del sistema: <span class="highlight">${new Date().toLocaleString()}</span>`;
+            historial.appendChild(lineaRespuesta);
+            break;
+
+          case 'say':
+            if (argumento) {
+              sayOverlay.textContent = argumento;
+              sayOverlay.classList.add('show');
+              clearTimeout(sayTimeout);
+              sayTimeout = setTimeout(() => {
+                sayOverlay.classList.remove('show');
+              }, 3000);
+              lineaRespuesta.innerHTML = `[MENSAJE MOSTRADO EN PANTALLA]`;
+            } else {
+              lineaRespuesta.innerHTML = `Uso: <span class="highlight">say [tu mensaje aquí]</span>`;
+            }
+            historial.appendChild(lineaRespuesta);
+            break;
+
+          case 'sudo':
+            lineaRespuesta.innerHTML = `<span style="color: #ff5f56;">[ACCESO DENEGADO]</span> No tienes suficientes privilegios para hackear la Matrix...aún (por nuv).`;
+            historial.appendChild(lineaRespuesta);
+            break;
+
+          case 'matrix':
+            if (argumento === 'rojo') {
+              matrixColor = '#ff0055';
+              lineaRespuesta.innerHTML = 'Color de Matrix cambiado a <span style="color: #ff0055;">Rojo</span>.';
+            } else if (argumento === 'azul') {
+              matrixColor = '#00ccff';
+              lineaRespuesta.innerHTML = 'Color de Matrix cambiado a <span style="color: #00ccff;">Azul</span>.';
+            } else if (argumento === 'verde') {
+              matrixColor = '#00ff66';
+              lineaRespuesta.innerHTML = 'Color de Matrix cambiado a <span style="color: #00ff66;">Verde</span>.';
+            } else {
+              lineaRespuesta.innerHTML = 'Uso: <span class="highlight">matrix rojo</span>, <span class="highlight">matrix azul</span> o <span class="highlight">matrix verde</span>.';
+            }
+            historial.appendChild(lineaRespuesta);
+            break;
+
+          case 'destroy':
+            terminalContainer.classList.add('glitch-mode');
+            lineaRespuesta.innerHTML = `<span style="color: #ff0000; font-weight: bold;">[ALERTA CRÍTICA] FALLO DE NÚCLEO... REINICIANDO TERMINAL EN 3 SEGUNDOS.</span>`;
+            historial.appendChild(lineaRespuesta);
+            setTimeout(() => {
+              historial.innerHTML = '';
+              terminalContainer.classList.remove('glitch-mode');
+            }, 3000);
+            break;
+
+          case 'clear':
+            historial.innerHTML = '';
+            input.value = '';
+            return;
+
+          default:
+            lineaRespuesta.innerHTML = `El comando "<span class="highlight">${escapeHTML(comando)}</span>" no se reconoce. Escribe <span class="highlight">help</span>.`;
+            historial.appendChild(lineaRespuesta);
+            break;
+        }
+
+        input.value = '';
+        terminalBody.scrollTop = terminalBody.scrollHeight;
+      }
+    });
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          "'": '&#39;',
+          '"': '&quot;'
+        }[tag] || tag)
+      );
+    }
+  </script>
+</body>
+</html>
